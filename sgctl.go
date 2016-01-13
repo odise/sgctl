@@ -1,15 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/spf13/cobra"
@@ -123,43 +120,20 @@ func modify(instance string, sg []*string) {
 }
 
 func findInstanceID() string {
-	client := &http.Client{
-		Timeout: time.Second * 3,
-	}
-	resp, err := client.Get("http://169.254.169.254/latest/meta-data/instance-id")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	metaClient := ec2metadata.New(session.New(&aws.Config{}))
+	instanceID, err := metaClient.GetMetadata("instance-id")
 
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	return string(body)
+	return instanceID
 }
 
 func getRegion() string {
-	client := &http.Client{
-		Timeout: time.Second * 3,
-	}
-	resp, err := client.Get("http://169.254.169.254/latest/dynamic/instance-identity/document")
+	metaClient := ec2metadata.New(session.New(&aws.Config{}))
+	region, err := metaClient.Region()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var d map[string]interface{}
-
-	if err = json.Unmarshal(body, &d); err != nil {
-		log.Fatal(err)
-	}
-
-	return d["region"].(string)
+	return region
 }
